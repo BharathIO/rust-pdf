@@ -1,194 +1,172 @@
-// use printpdf::*;
-// use std::fs::File;
-// use std::io::BufWriter;
+// use genpdf::{
+//     elements::FrameCellDecorator, elements::Paragraph, elements::TableLayout, fonts, style::Style,
+//     Alignment, SimplePageDecorator,
+// };
 
-extern crate printpdf;
-// use image_crate::codecs::bmp::BmpDecoder;
-use printpdf::*;
-use std::fs::File;
-use std::io::BufWriter;
-// use std::io::Cursor;
+// use genpdf::style::Style;
+use genpdf::style;
+use genpdf::Alignment;
+use genpdf::Element as _;
+use genpdf::{elements, fonts};
+
+const FONT_DIRS: &[&str] = &["/Users/bharath/Work/roboto/"];
+const DEFAULT_FONT_NAME: &'static str = "Roboto";
+
+const LOREM_IPSUM: &'static str = "Lorem ipsum dolor sit amet, ";
+
+const IMAGE_PATH_JPG: &'static str = "/Users/bharath/Work/4doto.jpeg";
 
 fn main() {
-    // write_text();
-    draw_line();
-}
+    // let args: Vec<_> = env::args().skip(1).collect();
+    // if args.len() != 1 {
+    //     panic!("Missing argument: output file");
+    // }
+    let output_file = "gen.pdf";
+    let font_dir = FONT_DIRS
+        .iter()
+        .filter(|path| std::path::Path::new(path).exists())
+        .next()
+        .expect("Could not find font directory");
+    let default_font =
+        fonts::from_files(font_dir, DEFAULT_FONT_NAME, Some(fonts::Builtin::Helvetica))
+            .expect("Failed to load the default font family");
 
-fn draw_line() {
-    let initial_page_width = Mm(612.0);
-    let initial_page_height = Mm(792.0);
-    // let font_size = 50.0;
-    let (doc, page1, layer1) = PdfDocument::new(
-        "printpdf graphics test",
-        initial_page_width,
-        initial_page_height,
-        "Layer 1",
-    );
-    let current_layer = doc.get_page(page1).get_layer(layer1);
+    let mut doc = genpdf::Document::new(default_font);
 
-    let x = Mm(50.0);
-    let y = Mm(700.0);
-    let y2 = Mm(750.0);
+    // let mut decorator = SimplePageDecorator::new();
+    // decorator.set_margins(10);
+    // decorator.set_header(2);
+    // doc.set_page_decorator(decorator);
 
-    let x_n = Mm(550.0);
-    let mut vert_line =
-        Line::from_iter(vec![(Point::new(x, y), false), (Point::new(x, y2), false)]);
-    vert_line.set_stroke(true);
+    // Position::new(0, 0);
+    // doc.push(pos);
 
-    current_layer.add_shape(vert_line);
+    let mut decorator = genpdf::SimplePageDecorator::new();
 
-    let mut vert_line2 = Line::from_iter(vec![
-        (Point::new(x_n, y), false),
-        (Point::new(x_n, y2), false),
-    ]);
-    vert_line2.set_stroke(true);
-    current_layer.add_shape(vert_line2);
+    decorator.set_margins(10);
 
-    let mut hor_line1 =
-        Line::from_iter(vec![(Point::new(x, y), false), (Point::new(x_n, y), false)]);
-    hor_line1.set_stroke(true);
-    current_layer.add_shape(hor_line1);
+    let red = style::Color::Rgb(255, 0, 0);
 
-    let mut hor_line2 = Line::from_iter(vec![
-        (Point::new(x, y2), false),
-        (Point::new(x_n, y2), false),
-    ]);
-    hor_line2.set_stroke(true);
-    current_layer.add_shape(hor_line2);
+    decorator.set_header(move |page| {
+        let mut layout = elements::LinearLayout::vertical();
 
-    // Quadratic shape. The "false" determines if the next (following)
-    // point is a bezier handle (for curves)
-    // If you want holes, simply reorder the winding of the points to be
-    // counterclockwise instead of clockwise.
-    let points1 = vec![
-        (Point::new(Mm(100.0), Mm(100.0)), false),
-        (Point::new(Mm(100.0), Mm(200.0)), false),
-        (Point::new(Mm(300.0), Mm(200.0)), false),
-        (Point::new(Mm(300.0), Mm(100.0)), false),
-    ];
+        let img = elements::Image::from_path(IMAGE_PATH_JPG)
+            .expect("Unable to load alt image")
+            .with_position(genpdf::Position::new(0, -5))
+            .with_scale(genpdf::Scale::new(0.4, 0.4));
+        layout.push(img);
 
-    // Is the shape stroked? Is the shape closed? Is the shape filled?
-    let line1 = Line {
-        points: points1,
-        is_closed: true,
-        has_fill: true,
-        has_stroke: true,
-        is_clipping_path: false,
-    };
+        // if page > 1 {
+        layout.push(elements::Paragraph::new(format!("Page {}", page)).aligned(Alignment::Center));
+        layout.push(elements::Break::new(1));
 
-    let fill_color = Color::Cmyk(Cmyk::new(0.0, 0.23, 0.0, 0.0, None));
-    let outline_color = Color::Rgb(Rgb::new(0.75, 1.0, 0.64, None));
-    let mut dash_pattern = LineDashPattern::default();
-    dash_pattern.dash_1 = Some(20);
+        // }
+        // layout.styled(style::Style::new().with_font_size(10))
+        layout.styled(red)
+    });
+    doc.set_page_decorator(decorator);
 
-    current_layer.set_fill_color(fill_color);
-    current_layer.set_outline_color(outline_color);
-    current_layer.set_outline_thickness(10.0);
+    doc.set_title("genpdf Demo Document");
+    doc.set_minimal_conformance();
+    doc.set_line_spacing(1.5);
 
-    // Draw first line
-    current_layer.add_shape(line1);
-    let fill_color_2 = Color::Cmyk(Cmyk::new(0.0, 0.0, 0.0, 0.0, None));
-    let outline_color_2 = Color::Greyscale(Greyscale::new(0.45, None));
+    // let mut text1 = elements::Text::new("Minimal PDF document");
+    let text1 = elements::Paragraph::new("<b>Line1</b>").aligned(Alignment::Center);
+    doc.push(text1);
+    let text2 = elements::Paragraph::new("line2").aligned(Alignment::Center);
+    doc.push(text2);
 
-    // More advanced graphical options
-    current_layer.set_overprint_stroke(true);
-    current_layer.set_blend_mode(BlendMode::Seperable(SeperableBlendMode::Multiply));
-    current_layer.set_line_dash_pattern(dash_pattern);
-    current_layer.set_line_cap_style(LineCapStyle::Round);
-    current_layer.set_line_join_style(LineJoinStyle::Round);
-    current_layer.set_fill_color(fill_color_2);
-    current_layer.set_outline_color(outline_color_2);
-    current_layer.set_outline_thickness(15.0);
+    doc.push(elements::Paragraph::new("Here is an example table:"));
 
-    // Text
-    let font2 = doc.add_builtin_font(BuiltinFont::Helvetica).unwrap();
-    let text = "Customer Load Audit Report";
-    let text2 = "Date <h1> Heading </h1>";
-    let current_layer = doc.get_page(page1).get_layer(layer1);
-    let x = Mm(200.0);
-    let y = Mm(730.0);
-    let fill_color = Color::Cmyk(Cmyk::new(100.0, 88.0, 0.0, 0.0, None));
-    current_layer.set_fill_color(fill_color);
-    current_layer.set_outline_thickness(10.0);
-    current_layer.begin_text_section();
-    // setup the general fonts.
-    // see the docs for these functions for details
-    current_layer.set_font(&font2, 40.0);
-    current_layer.set_text_cursor(x, y);
-    current_layer.set_line_height(33.0);
-    // current_layer.set_word_spacing(3000.0);
-    // current_layer.set_character_spacing(10.0);
-    // current_layer.set_text_rendering_mode(TextRenderingMode::Stroke);
-    // write two lines (one line break)
-    current_layer.write_text(text.clone(), &font2);
-    // current_layer.add_line_break();
-    // current_layer.write_text(text2.clone(), &font2);
-    current_layer.add_line_break();
-    // write one line, but write text2 in superscript
-    // current_layer.set_text_cursor(text2_x, text2_y);
-    current_layer.set_line_height(33.0);
-    current_layer.set_font(&font2, 30.0);
-    // current_layer.set_text_cursor(text2_x, text2_y);
-    // current_layer.set_text_rendering_mode(TextRenderingMode::Stroke);
-    current_layer.write_text(text2.clone(), &font2);
-    // current_layer.set_line_offset(10.0);
-    // current_layer.write_text(text2.clone(), &font2);
-    current_layer.end_text_section();
+    let mut table = elements::TableLayout::new(vec![1, 2]);
+    table.set_cell_decorator(elements::FrameCellDecorator::new(true, false, false));
+    table
+        .row()
+        .element(
+            elements::Paragraph::new("Header 1")
+                // .styled(style::Style::new("red", style::Color::Rgb(255, 0, 0)))
+                // .styled_string(
+                //     s,
+                //     style::StyledStr::new("red", style::Color::Rgb(255, 0, 0)),
+                // )
+                // .styled(Style::Effect::Bold)
+                .padded(1),
+        )
+        .element(elements::Paragraph::new("Value 2").padded(1))
+        .push()
+        .expect("Invalid table row");
+    table
+        .row()
+        .element(
+            elements::Paragraph::new("Header 2")
+                .styled(style::Effect::Bold)
+                .padded(1),
+        )
+        .element(
+            elements::Paragraph::new(
+                "A long paragraph to demonstrate how wrapping works in tables.  Nice, right?",
+            )
+            .padded(1),
+        )
+        .push()
+        .expect("Invalid table row");
+    let list_layout = elements::LinearLayout::vertical()
+        .element(elements::Paragraph::new(
+            "Of course, you can use all other elements inside a table.",
+        ))
+        .element(
+            elements::UnorderedList::new()
+                .element(elements::Paragraph::new("Even lists!"))
+                .element(
+                    elements::Paragraph::new("And frames!").padded(genpdf::Margins::vh(0, 1)), // .framed(style::LineStyle::new()),
+                ),
+        );
+    table
+        .row()
+        .element(
+            elements::Paragraph::new("Header 3")
+                .styled(style::Effect::Bold)
+                .padded(1),
+        )
+        .element(list_layout.padded(1))
+        .push()
+        .expect("Invalid table row");
+    doc.push(table);
+    doc.push(elements::Break::new(1.5));
 
-    println!("Creating pdf..");
-    doc.save(&mut BufWriter::new(File::create("test_line.pdf").unwrap()))
-        .unwrap();
-    println!("Done ! test_line.pdf");
-}
+    doc.push(elements::Paragraph::new(
+        "Now let’s print a long table to demonstrate how page wrapping works:",
+    ));
 
-fn _write_text() {
-    let initial_page_width = Mm(612.0);
-    let initial_page_height = Mm(792.0);
-    // let font_size = 50.0;
-    let (doc, page1, layer1) = PdfDocument::new(
-        "printpdf graphics test",
-        initial_page_width,
-        initial_page_height,
-        "Layer 1",
-    );
-    let font2 = doc.add_builtin_font(BuiltinFont::Helvetica).unwrap();
-    let text = "Customer Load Audit Report";
-    let text2 = "Date";
-    let current_layer = doc.get_page(page1).get_layer(layer1);
-    let x = Mm(200.0);
-    let y = Mm(742.0);
-    let fill_color = Color::Cmyk(Cmyk::new(100.0, 88.0, 0.0, 0.0, None));
-    current_layer.set_fill_color(fill_color);
-    current_layer.set_outline_thickness(10.0);
-    current_layer.begin_text_section();
-    // setup the general fonts.
-    // see the docs for these functions for details
-    current_layer.set_font(&font2, 40.0);
-    current_layer.set_text_cursor(x, y);
-    current_layer.set_line_height(33.0);
-    // current_layer.set_word_spacing(3000.0);
-    // current_layer.set_character_spacing(10.0);
-    // current_layer.set_text_rendering_mode(TextRenderingMode::Stroke);
-    // write two lines (one line break)
-    current_layer.write_text(text.clone(), &font2);
-    // current_layer.add_line_break();
-    // current_layer.write_text(text2.clone(), &font2);
-    current_layer.add_line_break();
-    // write one line, but write text2 in superscript
-    // current_layer.set_text_cursor(text2_x, text2_y);
-    current_layer.set_line_height(33.0);
-    current_layer.set_font(&font2, 30.0);
-    // current_layer.set_text_cursor(text2_x, text2_y);
-    // current_layer.set_text_rendering_mode(TextRenderingMode::Stroke);
-    current_layer.write_text(text2.clone(), &font2);
-    // current_layer.set_line_offset(10.0);
-    // current_layer.write_text(text2.clone(), &font2);
-    current_layer.end_text_section();
+    let mut table = elements::TableLayout::new(vec![1, 5]);
 
-    println!("Creating pdf..");
-    doc.save(&mut BufWriter::new(
-        File::create("test_working.pdf").unwrap(),
-    ))
-    .unwrap();
-    println!("Done ! test_working.pdf");
+    table.set_cell_decorator(elements::FrameCellDecorator::new(true, true, false));
+    table
+        .row()
+        .element(
+            elements::Paragraph::new("Index")
+                .styled(style::Effect::Bold)
+                .padded(2),
+        )
+        .element(
+            elements::Paragraph::new("Text")
+                .styled(style::Effect::Bold)
+                .padded(2),
+        )
+        .push()
+        .expect("Invalid table row");
+    for i in 0..30 {
+        table
+            .row()
+            .element(elements::Paragraph::new(format!("#{}", i)).padded(1))
+            .element(elements::Paragraph::new(LOREM_IPSUM).padded(1))
+            .push()
+            .expect("Invalid table row");
+    }
+
+    doc.push(table);
+
+    doc.render_to_file(output_file)
+        .expect("Failed to write output file");
+    print!("gen.pdf created");
 }
